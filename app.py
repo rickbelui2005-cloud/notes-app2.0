@@ -1,39 +1,110 @@
-from flask import Flask, render_template, request, redirect
-import sqlite3
+from flask import Flask, render_template, request, redirect, session
+from werkzeug.security import generate_password_hash, check_password_hash
+import psycopg2
 import os
 
 app = Flask(__name__)
+app.secret_key = "secret123"
 
-# create DB
+# ✅ PostgreSQL connection
+def get_db_connection():
+    conn = psycopg2.connect(os.environ.get("DATABASE_URL"))
+    return conn
+
+# ✅ Create tables
 def init_db():
-    conn = sqlite3.connect('notes.db')
-    cursor = conn.cursor()
-    cursor.execute('CREATE TABLE IF NOT EXISTS notes (id INTEGER PRIMARY KEY AUTOINCREMENT, text TEXT)')
+    conn = get_db_connection()
+    cur = conn.cursor()
+
+    cur.execute("""
+    CREATE TABLE IF NOT EXISTS users (
+        id SERIAL PRIMARY KEY,
+        username TEXT UNIQUE,
+        password TEXT
+    )
+    """)
+
+    cur.execute("""
+    CREATE TABLE IF NOT EXISTS notes (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER,
+        text TEXT
+    )
+    """)
+
     conn.commit()
     conn.close()
 
 init_db()
 
+# 🟢 REGISTER
+@app.route('/register', methods=['GET', 'POST'])
+def register():
+    if request.method == 'POST':
+        username = request.form['username']
+        password = generate_password_hash(request.form['password'])
+
+        conn = get_db_connection()
+        cur = conn.cursor()
+
+        cur.execute("INSERT INTO users (username, password) VALUES (%s, %s)", (username, password))
+
+        conn.commit()
+        conn.close()
+
+        return redirect('/login')
+
+    return render_template('register.html')
+
+# 🟢 LOGIN
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if request.method == 'POST':
+        username = request.form['username']
+        password = request.form['password']
+
+        conn = get_db_connection()
+        cur = conn.cursor()
+
+        cur.execute("SELECT * FROM users WHERE username=%s", (username,))
+        user = cur.fetchone()
+
+        conn.close()
+
+        if user and check_password_hash(user[2], password):
+            session['user_id'] = user[0]
+            return redirect('/')
+        else:
+            return "Invalid login"
+
+    return render_template('login.html')
+
+# 🟢 HOME (protected)
 @app.route('/', methods=['GET', 'POST'])
 def home():
-    conn = sqlite3.connect('notes.db')
-    cursor = conn.cursor()
+    if 'user_id' not in session:
+        return redirect('/login')
+
+    conn = get_db_connection()
+    cur = conn.cursor()
 
     if request.method == 'POST':
-        note = request.form['note']
-        if note.strip():
-            cursor.execute('INSERT INTO notes (text) VALUES (?)', (note,))
-            conn.commit()
-        conn.close()
-        return redirect('/')
+        text = request.form['note']
+        cur.execute("INSERT INTO notes (user_id, text) VALUES (%s, %s)", (session['user_id'], text))
+        conn.commit()
 
-    cursor.execute('SELECT * FROM notes')
-    notes = cursor.fetchall()
+    cur.execute("SELECT * FROM notes WHERE user_id=%s", (session['user_id'],))
+    notes = cur.fetchall()
+
     conn.close()
 
     return render_template('index.html', notes=notes)
 
-# IMPORTANT for Render
-if __name__ == '__main__':
-    port = int(os.environ.get("PORT", 10000))
-    app.run(host='0.0.0.0', port=port)
+# 🟢 LOGOUT
+@app.route('/logout')
+def logout():
+    session.clear()
+    return redirect('/login')
+
+if __name__ == "__main__":
+    app.run(debug=True)
