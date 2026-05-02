@@ -2,21 +2,74 @@
 <html>
 <head>
     <title>Notes App</title>
+    <style>
+        body {
+            font-family: Arial;
+            background: #0f172a;
+            color: white;
+            text-align: center;
+            padding: 40px;
+        }
+
+        .container {
+            max-width: 500px;
+            margin: auto;
+            background: #1e293b;
+            padding: 20px;
+            border-radius: 10px;
+        }
+
+        input {
+            width: 70%;
+            padding: 10px;
+            border: none;
+            border-radius: 5px;
+        }
+
+        button {
+            padding: 10px 15px;
+            background: #38bdf8;
+            border: none;
+            border-radius: 5px;
+            color: black;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        li {
+            background: #334155;
+            margin: 10px;
+            padding: 10px;
+            border-radius: 5px;
+            list-style: none;
+        }
+
+        a {
+            color: #f87171;
+            text-decoration: none;
+        }
+    </style>
 </head>
+
 <body>
 
-<h1>📝 My Notes</h1>
+<div class="container">
+    <h1>📝 My Notes</h1>
 
-<form method="POST">
-    <input type="text" name="note" placeholder="Write a note" required>
-    <button type="submit">Add</button>
-</form>
+    <form method="POST">
+        <input type="text" name="note" placeholder="Write a note..." required>
+        <button>Add</button>
+    </form>
 
-<ul>
-    {% for note in notes %}
-        <li>{{ note[1] }}</li>
-    {% endfor %}
-</ul>
+    <ul>
+        {% for note in notes %}
+            <li>{{ note[2] }}</li>
+        {% endfor %}
+    </ul>
+
+    <br>
+    <a href="/logout">Logout</a>
+</div>
 
 </body>
 </html>
